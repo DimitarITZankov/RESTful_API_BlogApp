@@ -24,7 +24,7 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return Users.query.get(int(user_id))
 #Create secret key for flask-login
-app.secret_key = "key"
+app.secret_key = os.urandom(24)
 migrate = Migrate(app,db)
 
 
@@ -75,6 +75,16 @@ login_args = reqparse.RequestParser()
 login_args.add_argument("username",type=str,required=True,help="Please enter your username")
 login_args.add_argument("password",type=str,required=True,help="Please enter your password")
 
+#AddPost Arguments
+addpost_args = reqparse.RequestParser()
+addpost_args.add_argument("title",type=str,required=True,help="Enter title of the post")
+addpost_args.add_argument("content",type=str,required=True,help="Tell us your story ..")
+addpostFields = {
+    "id" : fields.Integer,
+    "title" : fields.String,
+    "content" : fields.String,
+    "poster_name" : fields.String
+}
 
 
 #Create Main Page
@@ -120,18 +130,31 @@ class Login(Resource):
             return {"message":"The user doesn't exist"}
         if check_password_hash(user.password,args['password']):
             login_user(user)
-            return {"message":f"Welcome back {user.name}"},200
+            return {"message": f"Welcome back {user.name}","id": user.id,
+                    "username": user.username,"email": user.email}, 200
         else:
             return {"message":"Invalid username or password"}, 401
 
+#Logout endpoint
 class Logout(Resource):
     @login_required
     def post(self):
         logout_user()
         return {"message": "Logged out successfully"}, 200
 
-
-
+#Add Post endpoint: handles adding posts
+class AddPost(Resource):
+    @login_required
+    @marshal_with(addpostFields)
+    def post(self):
+        args = addpost_args.parse_args()
+        post = Posts(title=args['title'],content=args['content'],poster_id=current_user.id)
+        db.session.add(post)
+        db.session.commit()
+        return {"id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "poster_name": current_user.username},201
 
 
 
@@ -170,12 +193,11 @@ api.add_resource(MainPage, '/')
 api.add_resource(Register, '/register')
 api.add_resource(Login, '/login')
 api.add_resource(Logout, '/logout')
+api.add_resource(AddPost, '/addpost')
 
 
 #App Runner
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
 
 
