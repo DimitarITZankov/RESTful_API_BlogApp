@@ -51,7 +51,7 @@ class Posts(db.Model):
     poster_id = db.Column(db.Integer,db.ForeignKey('users.id'), nullable=False)
 
     def __repr__(self):
-    return f"Post(title={self.title}, poster_id={self.poster_id})"
+        return f"Post(title={self.title}, poster_id={self.poster_id})"
 
 
 
@@ -124,6 +124,12 @@ class Login(Resource):
         else:
             return {"message":"Invalid username or password"}, 401
 
+class Logout(Resource):
+    @login_required
+    def post(self):
+        logout_user()
+        return {"message": "Logged out successfully"}, 200
+
 
 
 
@@ -163,6 +169,7 @@ class Login(Resource):
 api.add_resource(MainPage, '/')
 api.add_resource(Register, '/register')
 api.add_resource(Login, '/login')
+api.add_resource(Logout, '/logout')
 
 
 #App Runner
