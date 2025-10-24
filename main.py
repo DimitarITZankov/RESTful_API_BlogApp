@@ -4,7 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash,check_password_hash
-
+from datetime import datetime
+from flask_migrate import Migrate
 
 
 
@@ -22,20 +23,42 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return Users.query.get(int(user_id))
+#Create secret key for flask-login
+app.secret_key = "key"
+migrate = Migrate(app,db)
 
 
 
 #Create Users Table
-class Users(db.Model):
-    id = db.Column(db.Integer,primary_key=True,nullable=False,unique=True)
+class Users(db.Model,UserMixin):
+    id = db.Column(db.Integer,primary_key=True)
     name = db.Column(db.String(40),nullable=False)
     username = db.Column(db.String(40),unique=True,nullable=False)
     email = db.Column(db.String(40),unique=True,nullable=False)
     password = db.Column(db.String(512),nullable=False)
+    posts = db.relationship('Posts',backref='poster')
 
     def __repr__(self):
         return f"User(name = {self.name},email = {self.email})"
 
+
+#Create Posts Table
+class Posts(db.Model):
+    id = db.Column(db.Integer,primary_key=True)
+    title = db.Column(db.String,nullable=False)
+    content = db.Column(db.Text,nullable=False)
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow)
+    poster_id = db.Column(db.Integer,db.ForeignKey('users.id'), nullable=False)
+
+    def __repr__(self):
+    return f"Post(title={self.title}, poster_id={self.poster_id})"
+
+
+
+
+
+
+#Register Arguments
 register_args = reqparse.RequestParser()
 register_args.add_argument("name",type=str,required=True,help="Please enter your name")
 register_args.add_argument("username",type=str,required=True,help="Please enter your username")
@@ -47,13 +70,19 @@ registerFields = {
     "email" : fields.String,
 }
 
+#Login Arguments
+login_args = reqparse.RequestParser()
+login_args.add_argument("username",type=str,required=True,help="Please enter your username")
+login_args.add_argument("password",type=str,required=True,help="Please enter your password")
 
-#Create main page
+
+
+#Create Main Page
 class MainPage(Resource):
     def get(self):
         return {"message":"Welcome To Our Main Page"}
 
-
+# Register endpoint: handles user registration
 class Register(Resource):
     @marshal_with(registerFields)
     def post(self):
@@ -81,6 +110,23 @@ class Register(Resource):
             return {"message":"Something went wrong with the database, please try again"}, 500
 
         return user,201
+
+#Login endpoint: handles user loging
+class Login(Resource):
+    def post(self):
+        args = login_args.parse_args()
+        user = Users.query.filter_by(username=args['username']).first()
+        if not user:
+            return {"message":"The user doesn't exist"}
+        if check_password_hash(user.password,args['password']):
+            login_user(user)
+            return {"message":f"Welcome back {user.name}"},200
+        else:
+            return {"message":"Invalid username or password"}, 401
+
+
+
+
 
 
 
@@ -116,6 +162,7 @@ class Register(Resource):
 #Adding resources (the routes)
 api.add_resource(MainPage, '/')
 api.add_resource(Register, '/register')
+api.add_resource(Login, '/login')
 
 
 #App Runner
@@ -123,3 +170,12 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     app.run(debug=True)
+
+
+
+'''{
+    "name": "Dimitar",
+    "username": "dimitar123",
+    "email": "dimitar@example.com",
+    "password": "secret123"
+}'''
