@@ -32,23 +32,23 @@ Database Migration: Flask-Migrate
 
 === Installation ===
 1. Clone the repository:
-   -git clone https://github.com/DimitarITZankov/RESTful_API_BlogApp.git
-   -cd RESTful_API_BlogApp
+   git clone https://github.com/DimitarITZankov/RESTful_API_BlogApp.git
+   cd RESTful_API_BlogApp
 
 2. Set up a virtual environment:
-   -python -m venv venv
-   -source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+   python -m venv venv
+   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
 
 3.Install dependencies:
-  -pip install -r requirements.txt
+  pip install -r requirements.txt
 
 4.Set up the database:
-  -flask db init
-  -flask db migrate
-  -flask db upgrade
+  flask db init
+  flask db migrate
+  flask db upgrade
 
 5.Run the application:
-  -flask run
+  flask run
 
 
 === API Endpoints ===
