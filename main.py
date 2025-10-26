@@ -170,6 +170,33 @@ class Post(Resource):
             return post,200
 
 
+#Edit Post endpoint: Only the poster of the post, can edit this post
+class EditPost(Resource):
+    @login_required
+    def patch(self,id):
+        post = Posts.query.filter_by(id=id).first()
+        if not post:
+            abort(404, message="Post not found")
+        if current_user.id != post.poster_id:
+            abort(403, message="You do not have permission to edit this post")
+        post.title = args['title']
+        post.content = args['content']
+        db.session.commit()
+        return {"message":f"Post with ID {id} has been edited successfully"}
+
+
+#Delete Post endpoint: Only the poster of the post can delete this post
+class DeletePost(Resource):
+    @login_required
+    def delete(self,id):
+        post = Posts.query.filter_by(id=id).first()
+        if not post:
+            abort(404, message="Post not found")
+        if current_user.id != post.poster_id:
+            abort(403, message="You do not have permission to delete this post")
+        db.session.delete(post)
+        db.session.commit()
+        return {"message":f"Post with ID {id} has been deleted successfully"}
 
 
 
@@ -208,6 +235,8 @@ api.add_resource(Login, '/login')
 api.add_resource(Logout, '/logout')
 api.add_resource(AddPost, '/add_post')
 api.add_resource(Post, '/post/<int:id>')
+api.add_resource(EditPost, '/edit_post/<int:id>')
+api.add_resource(DeletePost, '/delete_post/<int:id>')
 
 
 
