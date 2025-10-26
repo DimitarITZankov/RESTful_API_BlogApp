@@ -23,6 +23,10 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return Users.query.get(int(user_id))
+@login_manager.unauthorized_handler
+def unauthorized():
+    # This is called whenever a non-logged-in user tries to access @login_required
+    return {"message": "You must be logged in to perform this action"}, 401
 #Create secret key for flask-login
 app.secret_key = os.urandom(24)
 migrate = Migrate(app,db)
@@ -83,7 +87,8 @@ addpostFields = {
     "id" : fields.Integer,
     "title" : fields.String,
     "content" : fields.String,
-    "poster_name" : fields.String
+    "poster_name" : fields.String(attribute="poster.username"),
+    "date_posted": fields.DateTime
 }
 
 
@@ -151,10 +156,18 @@ class AddPost(Resource):
         post = Posts(title=args['title'],content=args['content'],poster_id=current_user.id)
         db.session.add(post)
         db.session.commit()
-        return {"id": post.id,
-            "title": post.title,
-            "content": post.content,
-            "poster_name": current_user.username},201
+        posts = Posts.query.all()
+        return posts,201
+
+#View Post endpoint: View every post by it's ID 
+class Post(Resource):
+    @marshal_with(addpostFields)
+    def get(self,id):
+        post = Posts.query.filter_by(id=id).first()
+        if not post:
+            abort(404, message=f"Post with ID {id} doesn't exist")
+        else:
+            return post,200
 
 
 
@@ -193,7 +206,9 @@ api.add_resource(MainPage, '/')
 api.add_resource(Register, '/register')
 api.add_resource(Login, '/login')
 api.add_resource(Logout, '/logout')
-api.add_resource(AddPost, '/addpost')
+api.add_resource(AddPost, '/add_post')
+api.add_resource(Post, '/post/<int:id>')
+
 
 
 #App Runner
