@@ -91,6 +91,11 @@ addpostFields = {
     "date_posted": fields.DateTime
 }
 
+#EditUser Arguments
+edit_user_args = reqparse.RequestParser()
+edit_user_args.add_argument("name", type=str)
+edit_user_args.add_argument("username", type=str)
+edit_user_args.add_argument("email", type=str)
 
 #Create Main Page
 class MainPage(Resource):
@@ -123,7 +128,6 @@ class Register(Resource):
         except Exception as e:
             print(e)
             return {"message":"Something went wrong with the database, please try again"}, 500
-
         return user,201
 
 #Login endpoint: handles user loging
@@ -169,12 +173,23 @@ class Post(Resource):
         else:
             return post,200
 
+#View All Posts endpoint: View all posts
+class AllPosts(Resource):
+    @marshal_with(addpostFields)
+    def get(self):
+        posts = Posts.query.order_by(Posts.date_posted.desc()).all()
+        if not posts:
+            abort(404,message="There aren't any posts")
+        return posts,200
+
+
 
 #Edit Post endpoint: Only the poster of the post, can edit this post
 class EditPost(Resource):
     @login_required
     def patch(self,id):
         post = Posts.query.filter_by(id=id).first()
+        args = addpost_args.parse_args()
         if not post:
             abort(404, message="Post not found")
         if current_user.id != post.poster_id:
@@ -200,9 +215,51 @@ class DeletePost(Resource):
 
 
 
+#Edit User Information endpoint: Editing your information
+class EditUser(Resource):
+    @login_required
+    def patch(self,id):
+        args = edit_user_args.parse_args()
+        user = Users.query.filter_by(id=id).first()
+        if not user:
+            abort(404,message="This user doesn't exist")
+        if current_user.id != user.id:
+            abort(403, message="You do not have permission to edit this user")
 
+        if args.get('name'):
+            user.name = args['name']
 
+        #Update username if provided and unique
+        if args.get('username') and args['username'] != user.username:
+            if Users.query.filter_by(username=args['username']).first():
+                abort(409, message="Username already taken")
+            user.username = args['username']
+        
+        #Update email if provided and unique
+        if args.get('email') and args['email'] != user.email:
+            if Users.query.filter_by(email=args['email']).first():
+                abort(409, message="Email already taken")
+            user.email = args['email']
+        db.session.commit() 
+        return {"message":"Successfully edited your information",
+                "id": user.id,
+                "name": user.name,
+                "username": user.username,
+                "email": user.email}
 
+#Delete User endpoint: Delete your user profile and all the posts with it 
+class DeleteUser(Resource):
+    @login_required
+    def delete(self,id):
+        user = Users.query.filter_by(id=id).first()
+        if not user:
+            abort(404, message="User not found")
+        if user.id != current_user.id:
+            abort(403, message="You do not have permission to delete this user")
+        Posts.query.filter_by(poster_id=user.id).delete()
+        db.session.delete(user)
+        db.session.commit()
+        return {"message":"Successfully deleted user and all posts associated with it"}
 
 
 
@@ -237,6 +294,9 @@ api.add_resource(AddPost, '/add_post')
 api.add_resource(Post, '/post/<int:id>')
 api.add_resource(EditPost, '/edit_post/<int:id>')
 api.add_resource(DeletePost, '/delete_post/<int:id>')
+api.add_resource(AllPosts, '/posts')
+api.add_resource(EditUser, '/edit_user/<int:id>')
+api.add_resource(DeleteUser, '/delete_user/<int:id>')
 
 
 
