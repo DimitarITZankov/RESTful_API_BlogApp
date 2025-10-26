@@ -1,5 +1,5 @@
 from flask import Flask,request
-from flask_restful import Api,Resource,reqparse,abort,fields,marshal_with
+from flask_restful import Api,Resource,reqparse,abort,fields,marshal_with,marshal
 from flask_sqlalchemy import SQLAlchemy
 import os
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
@@ -97,6 +97,14 @@ edit_user_args.add_argument("name", type=str)
 edit_user_args.add_argument("username", type=str)
 edit_user_args.add_argument("email", type=str)
 
+
+userFields = {
+    "name": fields.String,
+    "username": fields.String,
+    "email": fields.String
+}
+
+
 #Create Main Page
 class MainPage(Resource):
     def get(self):
@@ -188,14 +196,16 @@ class AllPosts(Resource):
 class EditPost(Resource):
     @login_required
     def patch(self,id):
-        post = Posts.query.filter_by(id=id).first()
         args = addpost_args.parse_args()
+        post = Posts.query.filter_by(id=id).first()
         if not post:
             abort(404, message="Post not found")
         if current_user.id != post.poster_id:
             abort(403, message="You do not have permission to edit this post")
-        post.title = args['title']
-        post.content = args['content']
+        if args.get("title") and args["title"]!= post.title:
+            post.title = args['title']
+        if args.get("content") and args['content']!=post.content:
+            post.content=args['content']
         db.session.commit()
         return {"message":f"Post with ID {id} has been edited successfully"}
 
@@ -261,6 +271,18 @@ class DeleteUser(Resource):
         db.session.commit()
         return {"message":"Successfully deleted user and all posts associated with it"}
 
+#Dashboard endpoint: Check your profile information and all posts under it
+class Dashboard(Resource):
+    @login_required
+    def get(self):
+        user = current_user
+        posts = Posts.query.filter_by(poster_id=user.id).all()
+        user_data = marshal(user, userFields)
+        posts_data = marshal(posts, addpostFields)
+        return {"user": user_data, "posts": posts_data}, 200
+
+
+
 
 
 
@@ -297,6 +319,7 @@ api.add_resource(DeletePost, '/delete_post/<int:id>')
 api.add_resource(AllPosts, '/posts')
 api.add_resource(EditUser, '/edit_user/<int:id>')
 api.add_resource(DeleteUser, '/delete_user/<int:id>')
+api.add_resource(Dashboard, '/dashboard')
 
 
 
