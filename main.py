@@ -108,6 +108,14 @@ edit_user_args.add_argument("name", type=str)
 edit_user_args.add_argument("username", type=str)
 edit_user_args.add_argument("email", type=str)
 
+#Comments Arguments
+comments_args = reqparse.RequestParser()
+comments_args.add_argument("comment",type=str,required=True,help="Enter your comment")
+commentsFields = {
+    "content": fields.String,
+    "commenter_name": fields.String(attribute="commenter.username"),
+    "date_posted":fields.DateTime
+}
 
 userFields = {
     "name": fields.String,
@@ -293,9 +301,48 @@ class Dashboard(Resource):
         return {"user": user_data, "posts": posts_data}, 200
 
 
+#Add Comments ednpoint: Add comments to a post
+class AddComment(Resource):
+    @login_required
+    @marshal_with(commentsFields)
+    def post(self,id):
+        args = comments_args.parse_args()
+        post = Posts.query.filter_by(id=id).first()
+        if not post:
+            abort(404,message=f"Post with ID {id} doesn't exist")
+        comment = Comments(
+            content=args['comment'],
+            post_id=post.id,
+            commenter_id=current_user.id
+        )
+        db.session.add(comment)
+        db.session.commit()
+        return comment,201
 
+#View All Comments endpoint: Show all comments under the chosen post
+class AllComments(Resource):
+    @marshal_with(commentsFields)
+    def get(self,id):
+        post = Posts.query.filter_by(id=id).first()
+        if not post:
+            abort(404,message=f"There is not any post with ID {id}")
+        comments = Comments.query.filter_by(post_id=post.id).order_by(Comments.date_posted.asc()).all()
+        if not comments:
+            abort(404,message=f"There are not any comments under this post")
+        return comments,200
 
-
+#Delete Comment endpoint: Delele YOUR comment under post
+class DeleteComment(Resource):
+    @login_required
+    def delete(self,comment_id):
+        comment = Comments.query.filter_by(id=comment_id).first()
+        if not comment:
+            abort(404,message=f"There is no comment with ID {comment_id}")
+        if comment.commenter_id != current_user.id:
+            abort(403, message="You do not have permission to delete this comment")
+        db.session.delete(comment)
+        db.session.commit()
+        return {"message": f"Comment with ID {comment_id} has been deleted successfully"}, 200
 
 
 
@@ -329,7 +376,9 @@ api.add_resource(AllPosts, '/posts')
 api.add_resource(EditUser, '/edit_user/<int:id>')
 api.add_resource(DeleteUser, '/delete_user/<int:id>')
 api.add_resource(Dashboard, '/dashboard')
-
+api.add_resource(AddComment, '/post/<int:id>/add_comment')
+api.add_resource(AllComments, '/post/<int:id>/comments')
+api.add_resource(DeleteComment, '/comment/<int:comment_id>/delete')
 
 
 #App Runner
