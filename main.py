@@ -57,7 +57,18 @@ class Posts(db.Model):
     def __repr__(self):
         return f"Post(title={self.title}, poster_id={self.poster_id})"
 
+#Create Comments Table
+class Comments(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    date_posted = db.Column(db.DateTime, default=datetime.utcnow)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=False)
+    commenter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    post = db.relationship('Posts', backref=db.backref('comments', cascade='all, delete-orphan'))
+    commenter = db.relationship('Users', backref=db.backref('comments', cascade='all, delete-orphan'))
 
+    def __repr__(self):
+        return f"Comment(post_id={self.post_id}, commenter_id={self.commenter_id})"
 
 
 
@@ -280,8 +291,6 @@ class Dashboard(Resource):
         user_data = marshal(user, userFields)
         posts_data = marshal(posts, addpostFields)
         return {"user": user_data, "posts": posts_data}, 200
-
-
 
 
 
